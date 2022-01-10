@@ -1,11 +1,9 @@
 import numpy as np
 import cv2
 import threading
-
-import Object
-import StopLine
-
+import detect
 from model import NeuralNetwork
+
 
 class CollectTrainingData(object):
 
@@ -13,13 +11,9 @@ class CollectTrainingData(object):
 
         self.client = client        
         self.steer = steer
-
-        self.stopline = StopLine.Stop()
-        self.dect = Object.Object_Detection(self.steer)
-
         # model create
         self.model = NeuralNetwork()
-        self.model.load_model(path = 'model_data/video_model_1.h5')          
+        self.model.load_model(path = 'model_data/video_model_5.h5')          
 
     def collect(self):
 
@@ -38,22 +32,32 @@ class CollectTrainingData(object):
                     stream_bytes = stream_bytes[last + 2:]
 
                     image = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
-                    rgb = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
-                    rgb2 = rgb.copy()
+                    #rgb = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+
+                    cv2.line(image,(0,190),(106,100),(255,0,0),1)
+                    cv2.line(image,(320,190),(214,100),(255,0,0),1)
+                    #rgb2 = rgb.copy()
+                    #roi2 = rgb2[120:240, :] #for line roi
                     roi = image[120:240, :]                    
-                    roi2 = rgb2[120:240, :] #for line roi
 
-                    cv2.imshow('Origin', rgb)
-                    cv2.imshow('GRAY', image)
-                    cv2.imshow('roi', roi)
 
+                    #화면 출력
+                    cv2.waitKey(1)
+                    #cv2.imshow('Origin', rgb)
+                    #cv2.imshow('roi', roi)
+                    #cv2.imshow('GRAY', image)
+                    
+                    #yolo 적용
+                    cv2.imwrite('./testimg/two.jpg', image)
+                    pointlist = detect.run(source = 'testimg') #pointlist = [분류 클래스 name, x, y, w, h, 정확도] 형태
+                    cv2.waitKey(1)
+                    
                     # reshape the roi image into a vector
-                    image_array = np.reshape(roi, (-1, 120, 320, 1))                  
-
+                    image_array = np.reshape(roi, (-1, 120, 320, 1))    
+                    
                     # neural network makes prediction
-                    self.steer.Set_Line(self.model.predict(image_array))
-                    self.steer.Set_Stopline(self.stopline.GetStopLine(roi2))
-                    self.dect.Detection(rgb)                    
+                    self.steer.Set_objPoint(pointlist)
+                    self.steer.Set_Line(self.model.predict(image_array))                   
                     self.steer.Control()
                 except:
                     continue
